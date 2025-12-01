@@ -1,4 +1,4 @@
-const char WIFI_INFO[] PROGMEM = R"=====(
+const char WIFI_CONFIG[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="en">
 <head>
