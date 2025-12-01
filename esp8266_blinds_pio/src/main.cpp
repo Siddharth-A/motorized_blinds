@@ -271,8 +271,11 @@ void connectToWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("Connected to WiFi: " + savedSSID);
     Serial.println("IP address: " + WiFi.localIP().toString());
-    Serial.println("Gateway IP: " + WiFi.gatewayIP().toString());
     server.on("/", handleWifiHomePage);
+
+    // Start the web server if not already started
+    server.begin();
+    Serial.println("HTTP server started on: http://" + WiFi.localIP().toString());
   }
   else
     Serial.println("Failed to connect to WiFi after " + String(attempt) + " attempts");
