@@ -7,8 +7,9 @@ ESP8266 AP Mode - WiFi Configuration Portal
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
-#include "wifi-config.h"
-#include "wifi-home.h"
+
+#include "html_pages.h"
+#include "eeprom_utils.h"
 
 // AP Configuration
 const char* ap_ssid = "Mintek_Blinds";
@@ -18,13 +19,6 @@ IPAddress ap_subnet(255, 255, 255, 0); // Subnet mask
 
 // Web Server
 ESP8266WebServer server(80);
-
-// EEPROM Configuration
-#define EEPROM_SIZE 512
-#define SSID_ADDR 0
-#define PASSWORD_ADDR 64
-#define MAX_SSID_LEN 32
-#define MAX_PASSWORD_LEN 64
 
 // Wifi Button Configuration
 #define WIFI_SETUP_BUTTON 4
@@ -42,81 +36,14 @@ IPAddress wifi_subnet(255, 255, 255, 0);  // Subnet mask
 
 
 // Handle AP Configuration Page
-void handleAPConfigurationPage(){
-  String s = WIFI_CONFIG;
+void handleAPSetupPage(){
+  String s = WIFI_SETUP;
   server.send(200,"text/html",s);
 }
 
 void handleWifiHomePage(){
   String s = WIFI_HOME;
   server.send(200,"text/html",s);
-}
-
-void writeStringToEEPROM(int address, String data) {
-    // Ensure we don't exceed max length
-    int len = data.length();
-    if (len > MAX_SSID_LEN && address == SSID_ADDR) {
-        len = MAX_SSID_LEN;
-        data = data.substring(0, MAX_SSID_LEN);
-    }
-    if (len > MAX_PASSWORD_LEN && address == PASSWORD_ADDR) {
-        len = MAX_PASSWORD_LEN;
-        data = data.substring(0, MAX_PASSWORD_LEN);
-    }
-
-    // Write length byte
-    EEPROM.write(address, len);
-
-    // Write string data (without null terminator, just raw bytes)
-    for (int i = 0; i < len; i++) {
-        EEPROM.write(address + 1 + i, data[i]);
-    }
-
-    // Clear any remaining bytes in the allocated space
-    int maxLen = (address == SSID_ADDR) ? MAX_SSID_LEN : MAX_PASSWORD_LEN;
-    for (int i = len; i < maxLen; i++) {
-        EEPROM.write(address + 1 + i, 0);
-    }
-    EEPROM.commit();
-}
-
-String readStringFromEEPROM(int address) {
-    // Read length byte
-    uint8_t len = EEPROM.read(address);
-
-    // Validate length - check against appropriate max
-    int maxLen = (address == SSID_ADDR) ? MAX_SSID_LEN : MAX_PASSWORD_LEN;
-    if (len == 0 || len > maxLen) {
-        return "";
-    }
-    // Read string data
-    String data = "";
-    for (int i = 0; i < len; i++) {
-        char c = char(EEPROM.read(address + 1 + i));
-        // Stop if we encounter a null byte (safety check)
-        if (c == '\0') {
-            break;
-        }
-        data += c;
-    }
-    return data;
-}
-
-void clearEEPROM() {
-    // Write empty strings (length 0) to both locations
-    EEPROM.write(SSID_ADDR, 0);
-    EEPROM.write(PASSWORD_ADDR, 0);
-
-    // Clear the data areas by writing 0 to all bytes
-    for (int i = 1; i <= MAX_SSID_LEN; i++) {
-        EEPROM.write(SSID_ADDR + i, 0);
-    }
-    for (int i = 1; i <= MAX_PASSWORD_LEN; i++) {
-        EEPROM.write(PASSWORD_ADDR + i, 0);
-    }
-
-    EEPROM.commit();
-    Serial.println("EEPROM cleared: SSID and password fields erased");
 }
 
 // Handle WiFi configuration POST request
@@ -185,7 +112,7 @@ void setupWifi() {
     Serial.println("Connect to this network and navigate to http://" + IP.toString() + "/setup");
 
     // Set up web server routes (only register once)
-    server.on("/setup", handleAPConfigurationPage);
+    server.on("/setup", handleAPSetupPage);
     server.on("/wifi-config", HTTP_POST, handleWiFiConfig);
     server.on("/clear-eeprom", HTTP_GET, handleClearEEPROM);  // Clear EEPROM via GET request
     server.onNotFound(handleNotFound);
