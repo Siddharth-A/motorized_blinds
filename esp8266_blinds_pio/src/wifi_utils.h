@@ -3,6 +3,8 @@
 
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+
+#include "led_utils.h"
 #include "html_pages.h"
 #include "eeprom_utils.h"
 
@@ -76,6 +78,7 @@ void handleNotFound() {
 
 // Setup Passwordless Access Point to intake WIFI credentials
 void setupWifi() {
+    setLedColor(255, 255, 255);
     Serial.println("\n \n \n");
     Serial.println("----------------------------------------------------------------");
     Serial.println("Starting WiFi Configuration Portal...");
@@ -139,6 +142,7 @@ void setupWifi() {
 
     // Reset wifiSetupActive to allow re-entry if needed
     wifiSetupActive = false;
+    setLedOff();
 }
 
 bool readWifiCredentialsFromEEPROM() {
@@ -162,6 +166,7 @@ bool readWifiCredentialsFromEEPROM() {
 }
 
 void connectToWiFi() {
+  setLedColor(0, 0, 255);
   Serial.println("\n \n \n");
   Serial.println("----------------------------------------------------------------");
   Serial.println("Connecting to WiFi...");
@@ -195,6 +200,8 @@ void connectToWiFi() {
   }
   else
     Serial.println("Failed to connect to WiFi after " + String(attempt) + " attempts");
+
+  setLedOff();
   Serial.println("----------------------------------------------------------------");
 }
 

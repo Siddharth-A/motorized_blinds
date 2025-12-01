@@ -2,12 +2,15 @@
 ESP8266 AP Mode - WiFi Configuration Portal
 */
 
-
-#include <PubSubClient.h>
 #include <EEPROM.h>
+#include <PubSubClient.h>
 
+#include "led_utils.h"
 #include "wifi_utils.h"
 #include "eeprom_utils.h"
+
+// Define the LED array (declared as extern in led_utils.h)
+CRGB leds[NEOPIXEL_COUNT];
 
 // Wifi Button Configuration
 #define WIFI_SETUP_BUTTON 4
@@ -25,6 +28,9 @@ void setup() {
     // Initialize EEPROM
     EEPROM.begin(EEPROM_SIZE);
     // clearEEPROM();
+
+    // Initialize LED
+    initLed();
 
     // Initialize WIFI_SETUP_BUTTON
     pinMode(WIFI_SETUP_BUTTON, INPUT_PULLUP);

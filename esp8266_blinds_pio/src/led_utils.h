@@ -1,0 +1,38 @@
+#ifndef LED_UTILS_H
+#define LED_UTILS_H
+
+#include <FastLED.h>
+
+#define NEOPIXEL_LED 14
+#define NEOPIXEL_COUNT 1
+#define LED_TYPE WS2812B
+#define COLOR_ORDER GRB
+
+// Global LED array
+extern CRGB leds[NEOPIXEL_COUNT];
+
+// Initialize the LED
+void initLed() {
+    FastLED.addLeds<LED_TYPE, NEOPIXEL_LED, COLOR_ORDER>(leds, NEOPIXEL_COUNT);
+    FastLED.setBrightness(100);
+    FastLED.clear();
+    FastLED.show();
+}
+
+// Set LED to a specific RGB color
+void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
+    leds[0] = CRGB(r, g, b);
+    FastLED.show();
+}
+
+void setLedOff() {
+    leds[0] = CRGB::Black;
+    delay(500);
+    FastLED.show();
+    delay(500);
+    leds[0] = CRGB::Black;
+    delay(500);
+    FastLED.show();
+}
+
+#endif // LED_UTILS_H
