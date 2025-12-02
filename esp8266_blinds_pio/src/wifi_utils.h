@@ -197,11 +197,12 @@ void connectToWiFi() {
     // Start the web server if not already started
     server.begin();
     Serial.println("HTTP server started on: http://" + WiFi.localIP().toString());
+    setLedOff();
   }
-  else
+  else{
     Serial.println("Failed to connect to WiFi after " + String(attempt) + " attempts");
-
-  setLedOff();
+    setLedColor(0, 255, 0);
+  }
   Serial.println("----------------------------------------------------------------");
 }
 
