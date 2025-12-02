@@ -3,9 +3,9 @@ ESP8266 AP Mode - WiFi Configuration Portal
 */
 
 #include <EEPROM.h>
-#include <PubSubClient.h>
 
 #include "led_utils.h"
+#include "mqtt_utils.h"
 #include "wifi_utils.h"
 #include "eeprom_utils.h"
 
@@ -47,17 +47,24 @@ void setup() {
 }
 
 void loop() {
+    connectToWiFi();
     handleWiFiServer();
+  
+    if (getWifiStatus()) {
+        setupMQTT();
+        sendMQTTDiscoveryMessage();
+        sendMQTTAvailabilityMessage();
+    }
+    handleMQTTServer();
 
     // Check Wifi Setup Button
     int reading = digitalRead(WIFI_SETUP_BUTTON);
     if (reading != lastButtonState) lastDebounceTime = millis();
     if ((millis() - lastDebounceTime) > debounceDelay && reading != currentButtonState) {
         currentButtonState = reading;
-        if (currentButtonState == LOW) {
-            setupWifi();
-            connectToWiFi();
-        }
+        if (currentButtonState == LOW)
+          resetWifiSetup();
+          setupWifi();
     }
     lastButtonState = reading;
 }

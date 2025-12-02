@@ -18,8 +18,9 @@ IPAddress ap_subnet(255, 255, 255, 0); // Subnet mask
 ESP8266WebServer server(80);
 
 // WiFi State Variables
-bool wifiSetupActive = false;
+bool wifiSetupCompleted = false;
 bool credentialsSubmitted = false;  // Flag to track when credentials are submitted
+bool wifiConnection = false;        // reset flag to false when Wifi reset
 
 // WiFi Station Static IP Configuration
 IPAddress wifi_ip(192, 168, 68, 136);      // Static IP address for WiFi station
@@ -76,16 +77,23 @@ void handleNotFound() {
     server.send(404, "text/plain", "Not Found");
 }
 
+void resetWifiSetup() {
+  wifiConnection = false;
+  wifiSetupCompleted = false;
+  credentialsSubmitted = false;
+}
+
+bool getWifiStatus() {
+  return (WiFi.status() == WL_CONNECTED) ? true : false;
+}
+
 // Setup Passwordless Access Point to intake WIFI credentials
 void setupWifi() {
+    if (wifiSetupCompleted) return;
     setLedColor(255, 255, 255);
     Serial.println("\n \n \n");
     Serial.println("----------------------------------------------------------------");
     Serial.println("Starting WiFi Configuration Portal...");
-
-    // Reset flags to allow re-entry
-    wifiSetupActive = false;
-    credentialsSubmitted = false;
 
     // Set up Access Point
     WiFi.mode(WIFI_AP);
@@ -113,7 +121,7 @@ void setupWifi() {
     server.begin();
     Serial.println("HTTP server started");
 
-    wifiSetupActive = true;
+    wifiSetupCompleted = true;
     Serial.println("----------------------------------------------------------------");
     Serial.println("Waiting for WiFi credentials to be submitted...");
 
@@ -139,9 +147,6 @@ void setupWifi() {
         Serial.println("WiFi credentials have been submitted!");
     }
     Serial.println("----------------------------------------------------------------");
-
-    // Reset wifiSetupActive to allow re-entry if needed
-    wifiSetupActive = false;
     setLedOff();
 }
 
@@ -166,6 +171,7 @@ bool readWifiCredentialsFromEEPROM() {
 }
 
 void connectToWiFi() {
+  if (getWifiStatus() && wifiConnection) return;
   setLedColor(0, 0, 255);
   Serial.println("\n \n \n");
   Serial.println("----------------------------------------------------------------");
@@ -197,6 +203,7 @@ void connectToWiFi() {
     // Start the web server if not already started
     server.begin();
     Serial.println("HTTP server started on: http://" + WiFi.localIP().toString());
+    wifiConnection = true;
     setLedOff();
   }
   else{

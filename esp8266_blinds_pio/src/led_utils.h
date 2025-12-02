@@ -27,11 +27,10 @@ void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
 
 void setLedOff() {
     leds[0] = CRGB::Black;
-    delay(500);
+    delay(1000);
     FastLED.show();
-    delay(500);
     leds[0] = CRGB::Black;
-    delay(500);
+    delay(1000);
     FastLED.show();
 }
 
