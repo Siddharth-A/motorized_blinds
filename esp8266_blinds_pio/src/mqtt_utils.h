@@ -5,7 +5,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define BLIND_NO 1
+#define BLIND_NO 2
 
 // MQTT Configuration
 String mqttServer = "homeassistant.local";
@@ -13,16 +13,20 @@ const int mqttPort = 1883;
 String mqttUsername = "mintek_blinds";
 String mqttPassword = "123";
 String mqttClientId = "mintek_blinds_" + String(BLIND_NO);
-// String blindTopic = "homeassistant/sensor/blind_" + String(BLIND_NO);
 
 // Home Assistant MQTT Configuration
-String discoveryPrefix = "homeassistant";
-String component = "cover";
-String nodeId = mqttClientId;
+String discoveryTopic = "homeassistant/cover/" + mqttClientId + "/config";
+String commandTopic = mqttClientId + "/set";
+String positionTopic = mqttClientId + "/position"; // Used for reporting current state (0-100)
+String setPositionTopic = mqttClientId + "/set_position"; // Used for setting the position (0-100)
+String availabilityTopic = mqttClientId + "/availability";
 
-String discoveryTopic = discoveryPrefix + "/" + component + "/" + nodeId + "/config";
-String stateTopic = component + "/" + nodeId + "/state";
-String availabilityTopic = component + "/" + nodeId + "/availability";
+// MQTT Payloads
+const char* payloadAvailable = "online";
+const char* payloadNotAvailable = "offline";
+const char* payloadOpen = "OPEN";
+const char* payloadClose = "CLOSE";
+const char* payloadStop = "STOP";
 
 // MQTT State Variables
 bool mqttSetupActive = false;
@@ -33,10 +37,18 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 void checkMQTTCallBack(char* topic, byte* payload, unsigned int length) {
+    printSeparator(1);
     Serial.println("MQTT Message received");
     Serial.println("Topic: " + String(topic));
-    Serial.println("Payload: " + String((char*)payload));
+    // Properly create string from payload using the length parameter
+    String payloadStr;
+    payloadStr.reserve(length);
+    for (unsigned int i = 0; i < length; i++) {
+        payloadStr += (char)payload[i];
+    }
+    Serial.println("Payload: " + payloadStr);
     Serial.println("Length: " + String(length));
+    printSeparator(3);
 }
 
 void setupMQTT() {
@@ -67,24 +79,64 @@ void setupMQTT() {
 }
 
 // source: https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+// source: https://www.home-assistant.io/integrations/cover.mqtt/
 void sendMQTTDiscoveryMessage() {
     if (mqttDiscoveryMsgSent) return;
     printSeparator(1);
     Serial.println("Sending MQTT Discovery Message...");
 
     DynamicJsonDocument doc(1024);
-    char buffer[256];
     bool retain = true;
 
-    doc["name"] = mqttClientId;
-    doc["state_topic"]   = stateTopic;
-    doc["availability_topic"]   = availabilityTopic;
-    doc["unique_id"] = mqttClientId + String("unique");
+    //basic config
+    doc["name"] = "ESP8266_" + mqttClientId;
+    doc["unique_id"] = mqttClientId;
+    doc["qos"] = 0;
+    doc["retain"] = false;
+    doc["optimistic"] = false;
+  
+    // Topics
+    doc["command_topic"] = commandTopic;
+    doc["position_topic"] = positionTopic;
+    doc["set_position_topic"] = setPositionTopic;
+    doc["availability_topic"] = availabilityTopic;
+  
+    // Payloads
+    doc["payload_open"] = payloadOpen;
+    doc["payload_close"] = payloadClose;
+    doc["payload_stop"] = payloadStop;
+    doc["payload_available"] = payloadAvailable;
+    doc["payload_not_available"] = payloadNotAvailable;
+    
+    // Position Mapping
+    doc["position_open"] = 100;
+    doc["position_closed"] = 0;
+  
+    // Device Info (Optional but Recommended)
+    JsonObject device = doc.createNestedObject("device");
+    device["identifiers"] = mqttClientId + String("_identifier");
+    device["name"] = mqttClientId + String("_device");
+    device["manufacturer"] = "DIY";
+    device["icon"] = "mdi:blinds";
+  
+    // String payload;
+    // serializeJson(doc, payload);
+    char buffer[256];
     size_t n = serializeJson(doc, buffer);
-    mqttClient.publish(discoveryTopic.c_str(), (const uint8_t*)buffer, n, retain);
-    mqttClient.subscribe(stateTopic.c_str());
+  
+    // mqttDiscoveryMsgSent = mqttClient.publish(discoveryTopic.c_str(), payload.c_str(), retain);
+    mqttDiscoveryMsgSent = mqttClient.publish(discoveryTopic.c_str(), (const uint8_t*)buffer, n, retain);
+    if (mqttDiscoveryMsgSent)
+        Serial.println("Discovery message published successfully");
+    else
+        Serial.println("ERROR: Failed to publish discovery message");
+
+    mqttClient.subscribe(discoveryTopic.c_str());
+    mqttClient.subscribe(commandTopic.c_str());
+    mqttClient.subscribe(setPositionTopic.c_str());
+    mqttClient.subscribe(availabilityTopic.c_str());
+    mqttClient.subscribe(positionTopic.c_str());
     delay(500);
-    mqttDiscoveryMsgSent = true;
     printSeparator(3);
 }
 
@@ -92,10 +144,11 @@ void sendMQTTAvailabilityMessage() {
     if (mqttAvailableMsgSent) return;
     printSeparator(1);
     Serial.println("Sending MQTT Availability Message...");
-    String availability = "online";
-    mqttClient.publish(availabilityTopic.c_str(), availability.c_str());
-    mqttClient.subscribe(stateTopic.c_str());
-    mqttAvailableMsgSent = true;
+    mqttAvailableMsgSent = mqttClient.publish(availabilityTopic.c_str(), payloadAvailable);
+    if (mqttAvailableMsgSent)
+        Serial.println("Availability message published successfully");
+    else
+        Serial.println("ERROR: Failed to publish availability message");
     printSeparator(3);
 }
 
