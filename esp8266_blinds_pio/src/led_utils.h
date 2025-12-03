@@ -11,6 +11,22 @@
 // Global LED array
 extern CRGB leds[NEOPIXEL_COUNT];
 
+void printSeparator(int case_num) {
+    switch (case_num) {
+        case 1:
+            Serial.println("\n \n \n");
+            Serial.println("----------------------------------------------------------------");
+            break;
+        case 2:
+            Serial.println("----------------------------------------------------------------");
+            Serial.println("\n \n \n");
+            break;
+        default:
+            Serial.println("----------------------------------------------------------------");
+            break;
+    }
+}
+
 // Initialize the LED
 void initLed() {
     FastLED.addLeds<LED_TYPE, NEOPIXEL_LED, COLOR_ORDER>(leds, NEOPIXEL_COUNT);

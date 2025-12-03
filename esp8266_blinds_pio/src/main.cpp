@@ -62,9 +62,10 @@ void loop() {
     if (reading != lastButtonState) lastDebounceTime = millis();
     if ((millis() - lastDebounceTime) > debounceDelay && reading != currentButtonState) {
         currentButtonState = reading;
-        if (currentButtonState == LOW)
+        if (currentButtonState == LOW){
           resetWifiSetup();
           setupWifi();
+        }
     }
     lastButtonState = reading;
 }

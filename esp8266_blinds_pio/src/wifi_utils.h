@@ -8,6 +8,12 @@
 #include "html_pages.h"
 #include "eeprom_utils.h"
 
+// Constants
+#define WIFI_SETUP_TIMEOUT_MS 600000  // 60 sec
+#define WIFI_CONNECTION_ATTEMPTS 10
+#define WIFI_CONNECTION_DELAY_MS 5000
+#define SERVER_POLL_DELAY_MS 100  // Reduced from 100ms
+
 // AP Configuration
 const char* ap_ssid = "Mintek_Blinds";
 IPAddress ap_ip(192, 168, 1, 1);       // Static IP address for AP
@@ -18,7 +24,6 @@ IPAddress ap_subnet(255, 255, 255, 0); // Subnet mask
 ESP8266WebServer server(80);
 
 // WiFi State Variables
-bool wifiSetupCompleted = false;
 bool credentialsSubmitted = false;  // Flag to track when credentials are submitted
 bool wifiConnection = false;        // reset flag to false when Wifi reset
 
@@ -79,20 +84,17 @@ void handleNotFound() {
 
 void resetWifiSetup() {
   wifiConnection = false;
-  wifiSetupCompleted = false;
   credentialsSubmitted = false;
 }
 
 bool getWifiStatus() {
-  return (WiFi.status() == WL_CONNECTED) ? true : false;
+  return (WiFi.status() == WL_CONNECTED);
 }
 
 // Setup Passwordless Access Point to intake WIFI credentials
 void setupWifi() {
-    if (wifiSetupCompleted) return;
     setLedColor(255, 255, 255);
-    Serial.println("\n \n \n");
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(1);
     Serial.println("Starting WiFi Configuration Portal...");
 
     // Set up Access Point
@@ -121,38 +123,33 @@ void setupWifi() {
     server.begin();
     Serial.println("HTTP server started");
 
-    wifiSetupCompleted = true;
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(3);
     Serial.println("Waiting for WiFi credentials to be submitted...");
 
     // Wait for credentials to be submitted
     unsigned long startTime = millis();
-    unsigned long timeout = 300000; // 5 minutes timeout (300000 ms)
+    unsigned long timeout = WIFI_SETUP_TIMEOUT_MS; // 5 minutes timeout (300000 ms)
 
     while (!credentialsSubmitted) {
-        // Handle web server requests
         server.handleClient();
 
         // Check for timeout
         if (millis() - startTime > timeout) {
-            Serial.println("Timeout: No credentials submitted within 5 minutes");
+            Serial.println("Timeout: No credentials submitted within " + String(WIFI_SETUP_TIMEOUT_MS / 1000) + " seconds");
             break;
         }
-
-        // Small delay to prevent tight loop
-        delay(100);
+        delay(SERVER_POLL_DELAY_MS);
     }
 
     if (credentialsSubmitted) {
         Serial.println("WiFi credentials have been submitted!");
     }
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(2);
     setLedOff();
 }
 
 bool readWifiCredentialsFromEEPROM() {
-  Serial.println("\n \n \n");
-  Serial.println("----------------------------------------------------------------");
+  printSeparator(1);
   Serial.println("Checking for WiFi credentials in EEPROM...");
   bool result = false;
     String savedSSID = readStringFromEEPROM(SSID_ADDR);
@@ -166,15 +163,14 @@ bool readWifiCredentialsFromEEPROM() {
     }
     else
         Serial.println("No saved WiFi credentials found.");
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(3);
     return result;
 }
 
 void connectToWiFi() {
   if (getWifiStatus() && wifiConnection) return;
   setLedColor(0, 0, 255);
-  Serial.println("\n \n \n");
-  Serial.println("----------------------------------------------------------------");
+  printSeparator(1);
   Serial.println("Connecting to WiFi...");
   String savedSSID = readStringFromEEPROM(SSID_ADDR);
   String savedPassword = readStringFromEEPROM(PASSWORD_ADDR);
@@ -189,9 +185,9 @@ void connectToWiFi() {
 
   Serial.print("Waiting: ");
   int attempt = 0;
-  while (WiFi.status() != WL_CONNECTED && attempt < 10) {
+  while (WiFi.status() != WL_CONNECTED && attempt < WIFI_CONNECTION_ATTEMPTS) {
     Serial.print(".");
-    delay(5000);
+    delay(WIFI_CONNECTION_DELAY_MS);
     attempt++;
   }
   Serial.println("\n");
@@ -210,7 +206,7 @@ void connectToWiFi() {
     Serial.println("Failed to connect to WiFi after " + String(attempt) + " attempts");
     setLedColor(0, 255, 0);
   }
-  Serial.println("----------------------------------------------------------------");
+  printSeparator(3);
 }
 
 // Function to handle server clients (for use in loop)
@@ -219,4 +215,3 @@ void handleWiFiServer() {
 }
 
 #endif // WIFI_UTILS_H
-

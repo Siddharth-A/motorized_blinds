@@ -42,8 +42,7 @@ void checkMQTTCallBack(char* topic, byte* payload, unsigned int length) {
 void setupMQTT() {
     if (mqttSetupActive) return;
     setLedColor(128, 0, 128); // purple
-    Serial.println("\n \n \n");
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(1);
     Serial.println("Connecting to MQTT...");
 
     int attempt = 0;
@@ -53,26 +52,24 @@ void setupMQTT() {
         delay(5000);
         attempt++;
     }
-    Serial.println("\n");
     if (mqttClient.connect(mqttClientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) {
-        Serial.println("Connected to MQTT");
+        Serial.println("Connected");
         mqttClient.setCallback(checkMQTTCallBack);
-        setLedOff();
         mqttSetupActive = true;
     }
     else{
         Serial.println("Failed to connect to MQTT after " + String(attempt) + " attempts");
         setLedColor(0, 255, 0); // red
     }
-    Serial.println("----------------------------------------------------------------");
+    delay(1000);
+    setLedOff();
+    printSeparator(3);
 }
 
 // source: https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
 void sendMQTTDiscoveryMessage() {
     if (mqttDiscoveryMsgSent) return;
-    setLedColor(255, 255, 0); // yellow
-    Serial.println("\n \n \n");
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(1);
     Serial.println("Sending MQTT Discovery Message...");
 
     DynamicJsonDocument doc(1024);
@@ -87,21 +84,19 @@ void sendMQTTDiscoveryMessage() {
     mqttClient.publish(discoveryTopic.c_str(), (const uint8_t*)buffer, n, retain);
     mqttClient.subscribe(stateTopic.c_str());
     delay(500);
-    setLedOff();
     mqttDiscoveryMsgSent = true;
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(3);
 }
 
 void sendMQTTAvailabilityMessage() {
     if (mqttAvailableMsgSent) return;
-    Serial.println("\n \n \n");
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(1);
     Serial.println("Sending MQTT Availability Message...");
     String availability = "online";
     mqttClient.publish(availabilityTopic.c_str(), availability.c_str());
     mqttClient.subscribe(stateTopic.c_str());
     mqttAvailableMsgSent = true;
-    Serial.println("----------------------------------------------------------------");
+    printSeparator(3);
 }
 
 void handleMQTTServer() {
