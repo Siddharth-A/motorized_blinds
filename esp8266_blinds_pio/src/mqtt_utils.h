@@ -5,7 +5,8 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define BLIND_NO 2
+#define BLIND_NO 1
+#define BLIND_NAME "Family Room Blinds"
 
 // MQTT Configuration
 String mqttServer = "homeassistant.local";
@@ -57,6 +58,9 @@ void setupMQTT() {
     printSeparator(1);
     Serial.println("Connecting to MQTT...");
 
+    // Increase buffer size to handle larger messages
+    mqttClient.setBufferSize(512);
+
     int attempt = 0;
     mqttClient.setServer(mqttServer.c_str(), mqttPort);
     while (!mqttClient.connect(mqttClientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str()) && attempt < 10) {
@@ -73,6 +77,13 @@ void setupMQTT() {
         Serial.println("Failed to connect to MQTT after " + String(attempt) + " attempts");
         setLedColor(0, 255, 0); // red
     }
+
+    mqttClient.subscribe(discoveryTopic.c_str());
+    mqttClient.subscribe(commandTopic.c_str());
+    mqttClient.subscribe(setPositionTopic.c_str());
+    mqttClient.subscribe(availabilityTopic.c_str());
+    mqttClient.subscribe(positionTopic.c_str());
+
     delay(1000);
     setLedOff();
     printSeparator(3);
@@ -86,44 +97,49 @@ void sendMQTTDiscoveryMessage() {
     Serial.println("Sending MQTT Discovery Message...");
 
     DynamicJsonDocument doc(1024);
+    char buffer[512];
     bool retain = true;
 
-    //basic config
+    // Basic config with abbreviations to save memory
     doc["name"] = "ESP8266_" + mqttClientId;
-    doc["unique_id"] = mqttClientId;
+    doc["uniq_id"] = mqttClientId;      // abbreviated: uniq_id
     doc["qos"] = 0;
-    doc["retain"] = false;
+    doc["retain"] = retain;
     doc["optimistic"] = false;
-  
-    // Topics
-    doc["command_topic"] = commandTopic;
-    doc["position_topic"] = positionTopic;
-    doc["set_position_topic"] = setPositionTopic;
-    doc["availability_topic"] = availabilityTopic;
-  
-    // Payloads
-    doc["payload_open"] = payloadOpen;
-    doc["payload_close"] = payloadClose;
-    doc["payload_stop"] = payloadStop;
-    doc["payload_available"] = payloadAvailable;
-    doc["payload_not_available"] = payloadNotAvailable;
-    
+
+    // Topics (using abbreviations)
+    doc["cmd_t"] = commandTopic;            // abbreviated: command_topic
+    doc["pos_t"] = positionTopic;           // abbreviated: position_topic
+    doc["set_pos_t"] = setPositionTopic;    // abbreviated: set_pos_t
+    doc["avty_t"] = availabilityTopic;      // abbreviated: avty_t
+
+    // Payloads (using abbreviations)
+    doc["pl_open"] = payloadOpen;               // abbreviated: pl_open
+    doc["pl_cls"] = payloadClose;               // abbreviated: pl_cls
+    doc["pl_stop"] = payloadStop;               // abbreviated: pl_stop
+    doc["pl_avail"] = payloadAvailable;         // abbreviated: pl_avail
+    doc["pl_not_avail"] = payloadNotAvailable;  // abbreviated: pl_not_avail
+
     // Position Mapping
-    doc["position_open"] = 100;
-    doc["position_closed"] = 0;
-  
-    // Device Info (Optional but Recommended)
-    JsonObject device = doc.createNestedObject("device");
-    device["identifiers"] = mqttClientId + String("_identifier");
-    device["name"] = mqttClientId + String("_device");
-    device["manufacturer"] = "DIY";
-    device["icon"] = "mdi:blinds";
-  
-    // String payload;
-    // serializeJson(doc, payload);
-    char buffer[256];
+    doc["pos_open"] = 100;  // abbreviated: position_open
+    doc["pos_closed"] = 0;  // abbreviated: position_closed
+
+    // Device Info (Required for device-based discovery)
+    JsonObject device = doc.createNestedObject("dev");      // abbreviated: device
+    device["ids"] = mqttClientId;                          // abbreviated: ids (can be string or array)
+    device["name"] = String(BLIND_NAME);
+    device["mf"] = "Mintek";                               // abbreviated: mf
+    device["mdl"] = "";                                    // abbreviated: mdl
+    device["sw"] = "";                                     // abbreviated: sw
+
+    // Origin Info (Recommended/Required for device-based discovery)
+    JsonObject origin = doc.createNestedObject("o");        // abbreviated: origin
+    origin["name"] = String(BLIND_NAME);
+    origin["sw"] = "";                                     // abbreviated: sw
+
     size_t n = serializeJson(doc, buffer);
-  
+    Serial.println("Discovery message size: " + String(n));
+
     // mqttDiscoveryMsgSent = mqttClient.publish(discoveryTopic.c_str(), payload.c_str(), retain);
     mqttDiscoveryMsgSent = mqttClient.publish(discoveryTopic.c_str(), (const uint8_t*)buffer, n, retain);
     if (mqttDiscoveryMsgSent)
@@ -131,11 +147,27 @@ void sendMQTTDiscoveryMessage() {
     else
         Serial.println("ERROR: Failed to publish discovery message");
 
-    mqttClient.subscribe(discoveryTopic.c_str());
-    mqttClient.subscribe(commandTopic.c_str());
-    mqttClient.subscribe(setPositionTopic.c_str());
-    mqttClient.subscribe(availabilityTopic.c_str());
-    mqttClient.subscribe(positionTopic.c_str());
+    delay(500);
+    printSeparator(3);
+}
+
+void deleteMQTTDevice() {
+    printSeparator(1);
+    Serial.println("Deleting MQTT Device from Home Assistant...");
+    
+    // Publish empty payload to discovery topic with retain flag
+    // This will remove the component and clear the published discovery payload
+    bool success = mqttClient.publish(discoveryTopic.c_str(), "", true);
+    
+    if (success) {
+        Serial.println("Device deletion message published successfully");
+        Serial.println("Discovery topic: " + discoveryTopic);
+        // Reset the discovery message sent flag so it can be re-sent if needed
+        mqttDiscoveryMsgSent = false;
+    } else {
+        Serial.println("ERROR: Failed to publish device deletion message");
+    }
+    
     delay(500);
     printSeparator(3);
 }

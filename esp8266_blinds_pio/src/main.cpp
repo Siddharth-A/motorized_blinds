@@ -54,6 +54,7 @@ void loop() {
         setupMQTT();
         sendMQTTDiscoveryMessage();
         sendMQTTAvailabilityMessage();
+        // deleteMQTTDevice();
     }
     handleMQTTServer();
 
